@@ -23,8 +23,8 @@ if $ARGUMENTS.profile not in ["quality", "balanced", "budget"]:
 Ensure config exists and load current state:
 
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" config-ensure-section
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state load)
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" config-ensure-section
+INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state load)
 ```
 
 This creates `.planning/config.json` with defaults if missing and loads current config.
@@ -51,7 +51,7 @@ Display confirmation with model table for selected profile:
 
 Agents will now use:
 
-[Show table from MODEL_PROFILES in gsd-tools.cjs for selected profile]
+[Show table from MODEL_PROFILES in gsd-tools.py for selected profile]
 
 Example:
 | Agent | Model |

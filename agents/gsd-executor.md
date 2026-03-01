@@ -37,7 +37,7 @@ This ensures project-specific patterns, conventions, and best practices are appl
 Load execution context:
 
 ```bash
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init execute-phase "${PHASE}")
+INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" init execute-phase "${PHASE}")
 ```
 
 Extract from init JSON: `executor_model`, `commit_docs`, `phase_dir`, `plans`, `incomplete_plans`.
@@ -200,7 +200,7 @@ Do NOT continue reading. Analysis without action is a stuck signal.
 Check if auto mode is active at executor start:
 
 ```bash
-AUTO_CFG=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.auto_advance 2>/dev/null || echo "false")
+AUTO_CFG=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" config-get workflow.auto_advance 2>/dev/null || echo "false")
 ```
 
 Store the result for checkpoint handling below.
@@ -389,34 +389,34 @@ After SUMMARY.md, update STATE.md using gsd-tools:
 
 ```bash
 # Advance plan counter (handles edge cases automatically)
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state advance-plan
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state advance-plan
 
 # Recalculate progress bar from disk state
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state update-progress
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state update-progress
 
 # Record execution metrics
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state record-metric \
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state record-metric \
   --phase "${PHASE}" --plan "${PLAN}" --duration "${DURATION}" \
   --tasks "${TASK_COUNT}" --files "${FILE_COUNT}"
 
 # Add decisions (extract from SUMMARY.md key-decisions)
 for decision in "${DECISIONS[@]}"; do
-  node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state add-decision \
+  python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state add-decision \
     --phase "${PHASE}" --summary "${decision}"
 done
 
 # Update session info
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state record-session \
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state record-session \
   --stopped-at "Completed ${PHASE}-${PLAN}-PLAN.md"
 ```
 
 ```bash
 # Update ROADMAP.md progress for this phase (plan counts, status)
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap update-plan-progress "${PHASE_NUMBER}"
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" roadmap update-plan-progress "${PHASE_NUMBER}"
 
 # Mark completed requirements from PLAN.md frontmatter
 # Extract the `requirements` array from the plan's frontmatter, then mark each complete
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" requirements mark-complete ${REQ_IDS}
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" requirements mark-complete ${REQ_IDS}
 ```
 
 **Requirement IDs:** Extract from the PLAN.md frontmatter `requirements:` field (e.g., `requirements: [AUTH-01, AUTH-02]`). Pass all IDs to `requirements mark-complete`. If the plan has no requirements field, skip this step.
@@ -434,13 +434,13 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" requirements mark-complete 
 
 **For blockers found during execution:**
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state add-blocker "Blocker description"
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state add-blocker "Blocker description"
 ```
 </state_updates>
 
 <final_commit>
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/ROADMAP.md .planning/REQUIREMENTS.md
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/ROADMAP.md .planning/REQUIREMENTS.md
 ```
 
 Separate from per-task commits — captures execution results only.

@@ -33,7 +33,7 @@ Exit.
 Load phase operation context:
 
 ```bash
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init phase-op "${PHASE_ARG}")
+INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" init phase-op "${PHASE_ARG}")
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`.
@@ -296,7 +296,7 @@ Create a test coverage report and present to user:
 
 Record test generation in project state:
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" state-snapshot
 ```
 
 If there are passing tests to commit:

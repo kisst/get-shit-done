@@ -52,7 +52,7 @@ cat .planning/research/FEATURES.md
 cat .planning/research/ARCHITECTURE.md
 cat .planning/research/PITFALLS.md
 
-# Planning config loaded via gsd-tools.cjs in commit step
+# Planning config loaded via gsd-tools.py in commit step
 ```
 
 Parse each file to extract:
@@ -131,7 +131,7 @@ Write to `.planning/research/SUMMARY.md`
 The 4 parallel researcher agents write files but do NOT commit. You commit everything together.
 
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs: complete project research" --files .planning/research/
+python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "docs: complete project research" --files .planning/research/
 ```
 
 ## Step 8: Return Summary
