@@ -1,4 +1,3 @@
-node_modules/
 .DS_Store
 TO-DOS.md
 CLAUDE.md
@@ -7,17 +6,13 @@ commands.html
 
 # Local test installs
 .claude/
-
-# Build artifacts (committed to npm, not git)
+# Build artifacts
 hooks/dist/
-
 # Coverage artifacts
 coverage/
-
 # Animation assets
 animation/
 *.gif
-
 # Internal planning documents
 reports/
 RAILROAD_ARCHITECTURE.md
@@ -29,3 +24,5 @@ docs/GSD-SYSTEM-SPECIFICATION.md
 gaps.md
 improve.md
 philosophy.md
+# Claude Code personal settings (teams copy .claude/settings.local.json.example)
+.claude/settings.local.json

@@ -1,5 +1,5 @@
 <purpose>
-Check for GSD updates via npm, display changelog for versions between installed and latest, obtain user confirmation, and execute clean installation with cache clearing.
+Check for GSD updates via git, display changelog for versions between installed and latest, obtain user confirmation, and execute clean installation with cache clearing.
 </purpose>
 
 <required_reading>
@@ -50,17 +50,17 @@ Proceed to install step (treat as version 0.0.0 for comparison).
 </step>
 
 <step name="check_latest_version">
-Check npm for latest version:
+Check GitHub for latest version:
 
 ```bash
-npm view get-shit-done-cc version 2>/dev/null
+git ls-remote --tags https://github.com/glittercowboy/get-shit-done.git 2>/dev/null | grep -oP 'refs/tags/v?\K[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
 ```
 
-**If npm check fails:**
+**If check fails:**
 ```
-Couldn't check for updates (offline or npm unavailable).
+Couldn't check for updates (offline or git unavailable).
 
-To update manually: `npx get-shit-done-cc --global`
+To update manually: `cd get-shit-done && git pull && make install`
 ```
 
 Exit.
@@ -152,12 +152,12 @@ Run the update using the install type detected in step 1:
 
 **If LOCAL install:**
 ```bash
-npx -y get-shit-done-cc@latest --local
+cd "$(git -C ~/.claude/get-shit-done rev-parse --show-toplevel 2>/dev/null || echo get-shit-done)" && git pull && make install-local
 ```
 
 **If GLOBAL install (or unknown):**
 ```bash
-npx -y get-shit-done-cc@latest --global
+cd "$(git -C ~/.claude/get-shit-done rev-parse --show-toplevel 2>/dev/null || echo get-shit-done)" && git pull && make install
 ```
 
 Capture output. If install fails, show error and exit.
@@ -205,7 +205,7 @@ Run /gsd:reapply-patches to merge your modifications into the new version.
 
 <success_criteria>
 - [ ] Installed version read correctly
-- [ ] Latest version checked via npm
+- [ ] Latest version checked via git
 - [ ] Update skipped if already current
 - [ ] Changelog fetched and displayed BEFORE update
 - [ ] Clean install warning shown

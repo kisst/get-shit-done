@@ -6,8 +6,6 @@
 
 **Solves context rot — the quality degradation that happens as Claude fills its context window.**
 
-[![npm version](https://img.shields.io/npm/v/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
-[![npm downloads](https://img.shields.io/npm/dm/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
 [![Tests](https://img.shields.io/github/actions/workflow/status/glittercowboy/get-shit-done/test.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/glittercowboy/get-shit-done/actions/workflows/test.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/gsd)
 [![X (Twitter)](https://img.shields.io/badge/X-@gsd__foundation-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/gsd_foundation)
@@ -18,14 +16,12 @@
 <br>
 
 ```bash
-npx get-shit-done-cc@latest
+git clone https://github.com/glittercowboy/get-shit-done.git
+cd get-shit-done
+make install
 ```
 
-**Works on Mac, Windows, and Linux.**
-
-<br>
-
-![GSD Install](assets/terminal.svg)
+**Works on Mac, Windows, and Linux. Requires Python 3.6+.**
 
 <br>
 
@@ -76,70 +72,31 @@ People who want to describe what they want and have it built correctly — witho
 ## Getting Started
 
 ```bash
-npx get-shit-done-cc@latest
+git clone https://github.com/glittercowboy/get-shit-done.git
+cd get-shit-done
+make install
 ```
 
-The installer prompts you to choose:
-1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, or all
-2. **Location** — Global (all projects) or local (current project only)
+Installs GSD globally to `~/.claude/get-shit-done/`. Requires Python 3.6+.
 
-Verify with:
-- Claude Code / Gemini: `/gsd:help`
-- OpenCode: `/gsd-help`
-- Codex: `$gsd-help`
+Verify with `/gsd:help` in Claude Code.
 
-> [!NOTE]
-> Codex installation uses skills (`skills/gsd-*/SKILL.md`) rather than custom prompts.
+### Install Options
+
+```bash
+make install          # Global install to ~/.claude/
+make install-local    # Local install to ./.claude/ (current project only)
+make uninstall        # Remove global installation
+make check            # Verify installation health
+```
 
 ### Staying Updated
 
-GSD evolves fast. Update periodically:
-
 ```bash
-npx get-shit-done-cc@latest
-```
-
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
-
-```bash
-# Claude Code
-npx get-shit-done-cc --claude --global   # Install to ~/.claude/
-npx get-shit-done-cc --claude --local    # Install to ./.claude/
-
-# OpenCode (open source, free models)
-npx get-shit-done-cc --opencode --global # Install to ~/.config/opencode/
-
-# Gemini CLI
-npx get-shit-done-cc --gemini --global   # Install to ~/.gemini/
-
-# Codex (skills-first)
-npx get-shit-done-cc --codex --global    # Install to ~/.codex/
-npx get-shit-done-cc --codex --local     # Install to ./.codex/
-
-# All runtimes
-npx get-shit-done-cc --all --global      # Install to all directories
-```
-
-Use `--global` (`-g`) or `--local` (`-l`) to skip the location prompt.
-Use `--claude`, `--opencode`, `--gemini`, `--codex`, or `--all` to skip the runtime prompt.
-
-</details>
-
-<details>
-<summary><strong>Development Installation</strong></summary>
-
-Clone the repository and run the installer locally:
-
-```bash
-git clone https://github.com/glittercowboy/get-shit-done.git
 cd get-shit-done
-node bin/install.js --claude --local
+git pull
+make install
 ```
-
-Installs to `./.claude/` for testing modifications before contributing.
-
-</details>
 
 ### Recommended: Skip Permissions Mode
 
@@ -632,44 +589,21 @@ This prevents Claude from reading these files entirely, regardless of what comma
 
 **Commands not working as expected?**
 - Run `/gsd:help` to verify installation
-- Re-run `npx get-shit-done-cc` to reinstall
-
-**Updating to the latest version?**
-```bash
-npx get-shit-done-cc@latest
-```
-
-**Using Docker or containerized environments?**
-
-If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
-```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
-```
-This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
+- Re-run `make install` to reinstall
 
 ### Uninstalling
 
-To remove GSD completely:
-
 ```bash
-# Global installs
-npx get-shit-done-cc --claude --global --uninstall
-npx get-shit-done-cc --opencode --global --uninstall
-npx get-shit-done-cc --codex --global --uninstall
-
-# Local installs (current project)
-npx get-shit-done-cc --claude --local --uninstall
-npx get-shit-done-cc --opencode --local --uninstall
-npx get-shit-done-cc --codex --local --uninstall
+make uninstall
 ```
 
-This removes all GSD commands, agents, hooks, and settings while preserving your other configurations.
+This removes all GSD commands, agents, hooks, and workflows while preserving your other configurations.
 
 ---
 
 ## Community Ports
 
-OpenCode, Gemini CLI, and Codex are now natively supported via `npx get-shit-done-cc`.
+OpenCode, Gemini CLI, and Codex are natively supported.
 
 These community ports pioneered multi-runtime support:
 
