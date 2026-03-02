@@ -45,6 +45,7 @@ def output(result, raw=False, raw_value=None):
             sys.stdout.write('@file:' + tmp_path)
         else:
             sys.stdout.write(json_str)
+    sys.stdout.flush()
     sys.exit(0)
 
 
