@@ -37,6 +37,17 @@ def extract_frontmatter(content):
             key = key_match.group(2)
             value = key_match.group(3).strip()
 
+            if isinstance(current['obj'], list) and current['obj'] and isinstance(current['obj'][-1], dict):
+                last_dict = current['obj'][-1]
+                if value == '' or value == '[':
+                    last_dict[key] = [] if value == '[' else {}
+                elif value.startswith('[') and value.endswith(']'):
+                    items = [s.strip().strip('"').strip("'") for s in value[1:-1].split(',')]
+                    last_dict[key] = [x for x in items if x]
+                else:
+                    last_dict[key] = value.strip('"').strip("'")
+                continue
+
             if value == '' or value == '[':
                 current['obj'][key] = [] if value == '[' else {}
                 current['key'] = None
@@ -49,18 +60,37 @@ def extract_frontmatter(content):
                 current['obj'][key] = value.strip('"').strip("'")
                 current['key'] = None
         elif line.strip().startswith('- '):
-            item_value = line.strip()[2:].strip('"').strip("'")
+            stripped = line.strip()[2:]
+            kv_match_item = re.match(r'([a-zA-Z0-9_-]+):\s*(.*)', stripped)
 
-            if isinstance(current['obj'], dict) and len(current['obj']) == 0:
-                parent = stack[-2] if len(stack) > 1 else None
-                if parent:
-                    for k in list(parent['obj'].keys()):
-                        if parent['obj'][k] is current['obj']:
-                            parent['obj'][k] = [item_value]
-                            current['obj'] = parent['obj'][k]
-                            break
-            elif isinstance(current['obj'], list):
-                current['obj'].append(item_value)
+            if kv_match_item:
+                item_key = kv_match_item.group(1)
+                item_val = kv_match_item.group(2).strip().strip('"').strip("'")
+                new_dict = {item_key: item_val}
+
+                if isinstance(current['obj'], dict) and len(current['obj']) == 0:
+                    parent = stack[-2] if len(stack) > 1 else None
+                    if parent:
+                        for k in list(parent['obj'].keys()):
+                            if parent['obj'][k] is current['obj']:
+                                parent['obj'][k] = [new_dict]
+                                current['obj'] = parent['obj'][k]
+                                break
+                elif isinstance(current['obj'], list):
+                    current['obj'].append(new_dict)
+            else:
+                item_value = stripped.strip('"').strip("'")
+
+                if isinstance(current['obj'], dict) and len(current['obj']) == 0:
+                    parent = stack[-2] if len(stack) > 1 else None
+                    if parent:
+                        for k in list(parent['obj'].keys()):
+                            if parent['obj'][k] is current['obj']:
+                                parent['obj'][k] = [item_value]
+                                current['obj'] = parent['obj'][k]
+                                break
+                elif isinstance(current['obj'], list):
+                    current['obj'].append(item_value)
 
 
     return frontmatter
