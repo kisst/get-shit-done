@@ -96,11 +96,20 @@ def _read_text_arg_or_file(cwd, value, file_path, label):
         raise ValueError('%s file not found: %s' % (label, file_path))
 
 
-def _state_extract_field(content, field_name):
+def state_extract_field(content, field_name):
+    """Extract field value from STATE.md content (bold or plain format)."""
     escaped = re.escape(field_name)
-    pattern = re.compile(r'\*\*%s:\*\*\s*(.+)' % escaped, re.IGNORECASE)
-    match = pattern.search(content)
+    bold = re.compile(r'\*\*%s:\*\*\s*(.+)' % escaped, re.IGNORECASE)
+    match = bold.search(content)
+    if match:
+        return match.group(1).strip()
+    plain = re.compile(r'^%s:\s*(.+)' % escaped, re.IGNORECASE | re.MULTILINE)
+    match = plain.search(content)
     return match.group(1).strip() if match else None
+
+
+# Keep internal alias for backward compatibility within this module
+_state_extract_field = state_extract_field
 
 
 def _state_replace_field(content, field_name, new_value):
@@ -651,3 +660,103 @@ def cmd_state_json(cwd, raw):
         return
 
     output(fm, raw, json.dumps(fm, indent=2))
+
+
+# ─── New upstream functions (v1.23–v1.29) ────────────────────────────────────
+
+def _update_current_position_fields(content, fields):
+    """Update fields within ## Current Position section."""
+    section_re = re.compile(
+        r'(##\s*Current Position\s*\n)([\s\S]*?)(?=\n##\s|$)', re.IGNORECASE)
+    match = section_re.search(content)
+    if not match:
+        return content
+
+    section = match.group(2)
+    for field, value in fields.items():
+        escaped = re.escape(field)
+        line_re = re.compile(r'(\*\*%s:\*\*\s*)(.*)' % escaped, re.IGNORECASE)
+        if line_re.search(section):
+            section = line_re.sub(lambda m: m.group(1) + value, section)
+
+    return content[:match.start(2)] + section + content[match.end(2):]
+
+
+def cmd_state_begin_phase(cwd, phase_number, phase_name, plan_count, raw):
+    """Update STATE.md when a new phase begins execution."""
+    state_path = os.path.join(cwd, '.planning', 'STATE.md')
+    try:
+        with open(state_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except (IOError, OSError):
+        error('STATE.md not found')
+        return
+
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    updated = []
+
+    field_updates = {
+        'Status': 'Executing phase %s' % phase_number,
+        'Last Activity': today,
+        'Last Activity Description': 'Began phase %s: %s' % (phase_number, phase_name or ''),
+        'Current Phase': str(phase_number),
+        'Current Phase Name': phase_name or '',
+        'Current Plan': '1',
+        'Total Plans in Phase': str(plan_count) if plan_count else '1',
+    }
+
+    for field, value in field_updates.items():
+        result = _state_replace_field(content, field, value)
+        if result:
+            content = result
+            updated.append(field)
+
+    focus_re = re.compile(r'(\*\*Current focus:\*\*\s*)(.*)', re.IGNORECASE)
+    if focus_re.search(content):
+        content = focus_re.sub(
+            lambda m: m.group(1) + 'Phase %s — %s' % (phase_number, phase_name or ''),
+            content)
+
+    content = _update_current_position_fields(content, {
+        'Status': 'Executing phase %s' % phase_number,
+        'Plan': '1 of %s' % (plan_count or '1'),
+    })
+
+    write_state_md(state_path, content, cwd)
+    output({'updated': updated, 'phase': str(phase_number),
+            'name': phase_name or '', 'plans': plan_count or 1}, raw)
+
+
+def cmd_signal_waiting(cwd, signal_type, question, options_str, phase, raw):
+    """Write WAITING.json signal file when GSD hits a decision point."""
+    planning_dir = os.path.join(cwd, '.planning')
+    wait_path = os.path.join(planning_dir, 'WAITING.json')
+
+    options_list = [o.strip() for o in options_str.split('|')] if options_str else []
+
+    signal = {
+        'status': 'waiting',
+        'type': signal_type or 'decision',
+        'question': question or '',
+        'options': options_list,
+        'since': datetime.now(timezone.utc).isoformat(),
+        'phase': phase or '',
+    }
+
+    os.makedirs(os.path.dirname(wait_path), exist_ok=True)
+    with open(wait_path, 'w', encoding='utf-8') as f:
+        json.dump(signal, f, indent=2)
+
+    output({'signaled': True, 'path': wait_path}, raw)
+
+
+def cmd_signal_resume(cwd, raw):
+    """Remove WAITING.json signal when user answers and agent resumes."""
+    removed = False
+    for rel in ('.planning/WAITING.json', '.gsd/WAITING.json'):
+        path = os.path.join(cwd, rel)
+        if os.path.exists(path):
+            os.remove(path)
+            removed = True
+
+    output({'resumed': True, 'removed': removed}, raw)

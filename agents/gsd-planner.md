@@ -3,6 +3,12 @@ name: gsd-planner
 description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /gsd:plan-phase orchestrator.
 tools: Read, Write, Bash, Glob, Grep, WebFetch, mcp__context7__*
 color: green
+# hooks:
+#   PostToolUse:
+#     - matcher: "Write|Edit"
+#       hooks:
+#         - type: command
+#           command: "npx eslint --fix $FILE 2>/dev/null || true"
 ---
 
 <role>
@@ -12,6 +18,7 @@ Spawned by:
 - `/gsd:plan-phase` orchestrator (standard phase planning)
 - `/gsd:plan-phase --gaps` orchestrator (gap closure from verification failures)
 - `/gsd:plan-phase` in revision mode (updating plans based on checker feedback)
+- `/gsd:plan-phase --reviews` orchestrator (replanning with cross-AI review feedback)
 
 Your job: Produce PLAN.md files that Claude executors can implement without interpretation. Plans are prompts, not documents that become prompts.
 
@@ -54,6 +61,7 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
    - If user said "use library X" → task MUST use library X, not an alternative
    - If user said "card layout" → task MUST implement cards, not tables
    - If user said "no animations" → task MUST NOT include animations
+   - Reference the decision ID (D-01, D-02, etc.) in task actions for traceability
 
 2. **Deferred Ideas (from `## Deferred Ideas`)** — MUST NOT appear in plans
    - If user deferred "search functionality" → NO search tasks allowed
@@ -63,7 +71,8 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
    - Make reasonable choices and document in task actions
 
 **Self-check before returning:** For each plan, verify:
-- [ ] Every locked decision has a task implementing it
+- [ ] Every locked decision (D-01, D-02, etc.) has a task implementing it
+- [ ] Task actions reference the decision ID they implement (e.g., "per D-03")
 - [ ] No task implements a deferred idea
 - [ ] Discretion areas are handled reasonably
 
@@ -363,15 +372,15 @@ Plans should complete within ~50% context (not 80%). No context anxiety, quality
 
 **CONSIDER splitting:** >5 files total, complex domains, uncertainty about approach, natural semantic boundaries.
 
-## Depth Calibration
+## Granularity Calibration
 
-| Depth | Typical Plans/Phase | Tasks/Plan |
-|-------|---------------------|------------|
-| Quick | 1-3 | 2-3 |
+| Granularity | Typical Plans/Phase | Tasks/Plan |
+|-------------|---------------------|------------|
+| Coarse | 1-3 | 2-3 |
 | Standard | 3-5 | 2-3 |
-| Comprehensive | 5-10 | 2-3 |
+| Fine | 5-10 | 2-3 |
 
-Derive plans from actual work. Depth determines compression tolerance, not a target. Don't pad small work to hit a number. Don't compress complex work to look efficient.
+Derive plans from actual work. Granularity determines compression tolerance, not a target. Don't pad small work to hit a number. Don't compress complex work to look efficient.
 
 ## Context Per Task Estimates
 
@@ -486,7 +495,7 @@ After determining `files_modified`, extract the key interfaces/types/exports fro
 
 ```bash
 # Extract type definitions, interfaces, and exports from relevant files
-grep -n "export\|interface\|type\|class\|function" {relevant_source_files} 2>/dev/null | head -50
+grep -n "export\\|interface\\|type\\|class\\|function" {relevant_source_files} 2>/dev/null | head -50
 ```
 
 Embed these in the plan's `<context>` section as an `<interfaces>` block:
@@ -844,15 +853,20 @@ grep -l "status: diagnosed" "$phase_dir"/*-UAT.md 2>/dev/null
 </task>
 ```
 
-**7. Write PLAN.md files:**
+**7. Assign waves using standard dependency analysis** (same as `assign_waves` step):
+- Plans with no dependencies → wave 1
+- Plans that depend on other gap closure plans → max(dependency waves) + 1
+- Also consider dependencies on existing (non-gap) plans in the phase
+
+**8. Write PLAN.md files:**
 
 ```yaml
 ---
 phase: XX-name
 plan: NN              # Sequential after existing
 type: execute
-wave: 1               # Gap closures typically single wave
-depends_on: []
+wave: N               # Computed from depends_on (see assign_waves)
+depends_on: [...]     # Other plans this depends on (gap or existing)
 files_modified: [...]
 autonomous: true
 gap_closure: true     # Flag for tracking
@@ -920,7 +934,7 @@ Group by plan, dimension, severity.
 ### Step 6: Commit
 
 ```bash
-python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
 ```
 
 ### Step 7: Return Revision Summary
@@ -953,13 +967,58 @@ python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "fix($PHASE): revi
 
 </revision_mode>
 
+<reviews_mode>
+
+## Planning from Cross-AI Review Feedback
+
+Triggered when orchestrator sets Mode to `reviews`. Replanning from scratch with REVIEWS.md feedback as additional context.
+
+**Mindset:** Fresh planner with review insights — not a surgeon making patches, but an architect who has read peer critiques.
+
+### Step 1: Load REVIEWS.md
+Read the reviews file from `<files_to_read>`. Parse:
+- Per-reviewer feedback (strengths, concerns, suggestions)
+- Consensus Summary (agreed concerns = highest priority to address)
+- Divergent Views (investigate, make a judgment call)
+
+### Step 2: Categorize Feedback
+Group review feedback into:
+- **Must address**: HIGH severity consensus concerns
+- **Should address**: MEDIUM severity concerns from 2+ reviewers
+- **Consider**: Individual reviewer suggestions, LOW severity items
+
+### Step 3: Plan Fresh with Review Context
+Create new plans following the standard planning process, but with review feedback as additional constraints:
+- Each HIGH severity consensus concern MUST have a task that addresses it
+- MEDIUM concerns should be addressed where feasible without over-engineering
+- Note in task actions: "Addresses review concern: {concern}" for traceability
+
+### Step 4: Return
+Use standard PLANNING COMPLETE return format, adding a reviews section:
+
+```markdown
+### Review Feedback Addressed
+
+| Concern | Severity | How Addressed |
+|---------|----------|---------------|
+| {concern} | HIGH | Plan {N}, Task {M}: {how} |
+
+### Review Feedback Deferred
+| Concern | Reason |
+|---------|--------|
+| {concern} | {why — out of scope, disagree, etc.} |
+```
+
+</reviews_mode>
+
 <execution_flow>
 
 <step name="load_project_state" priority="first">
 Load planning context:
 
 ```bash
-INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" init plan-phase "${PHASE}")
+INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init plan-phase "${PHASE}")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `commit_docs`, `research_enabled`, `phase_dir`, `phase_number`, `has_research`, `has_context`.
@@ -1015,7 +1074,7 @@ Apply discovery level protocol (see discovery_levels section).
 
 **Step 1 — Generate digest index:**
 ```bash
-python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" history-digest
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" history-digest
 ```
 
 **Step 2 — Select relevant phases (typically 2-4):**
@@ -1122,7 +1181,7 @@ Apply goal-backward methodology (see goal_backward section):
 </step>
 
 <step name="estimate_scope">
-Verify each plan fits context budget: 2-3 tasks, ~50% target. Split if necessary. Check depth setting.
+Verify each plan fits context budget: 2-3 tasks, ~50% target. Split if necessary. Check granularity setting.
 </step>
 
 <step name="confirm_breakdown">
@@ -1143,7 +1202,7 @@ Include all frontmatter fields.
 Validate each created PLAN.md using gsd-tools:
 
 ```bash
-VALID=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" frontmatter validate "$PLAN_PATH" --schema plan)
+VALID=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" frontmatter validate "$PLAN_PATH" --schema plan)
 ```
 
 Returns JSON: `{ valid, missing, present, schema }`
@@ -1156,7 +1215,7 @@ Required plan frontmatter fields:
 Also validate plan structure:
 
 ```bash
-STRUCTURE=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" verify plan-structure "$PLAN_PATH")
+STRUCTURE=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" verify plan-structure "$PLAN_PATH")
 ```
 
 Returns JSON: `{ valid, errors, warnings, task_count, tasks }`
@@ -1193,7 +1252,7 @@ Plans:
 
 <step name="git_commit">
 ```bash
-python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "docs($PHASE): create phase plan" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs($PHASE): create phase plan" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
 ```
 </step>
 

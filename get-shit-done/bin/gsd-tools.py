@@ -22,6 +22,12 @@ from lib_py import milestone
 from lib_py import commands
 from lib_py import init
 from lib_py import frontmatter
+from lib_py import security
+from lib_py import workstream
+from lib_py import uat
+from lib_py import model_profiles
+from lib_py import profile_pipeline
+from lib_py import profile_output
 
 
 def _find_arg(args, flag):
@@ -128,6 +134,24 @@ def main():
                 'stopped_at': _find_arg(args, '--stopped-at'),
                 'resume_file': _find_arg(args, '--resume-file') or 'None',
             }, raw)
+        elif sub == 'begin-phase':
+            plan_count = _find_arg(args, '--plans')
+            state.cmd_state_begin_phase(
+                cwd,
+                _find_arg(args, '--phase'),
+                _find_arg(args, '--name'),
+                int(plan_count) if plan_count else None,
+                raw)
+        elif sub == 'signal-waiting':
+            state.cmd_signal_waiting(
+                cwd,
+                _find_arg(args, '--type'),
+                _find_arg(args, '--question'),
+                _find_arg(args, '--options'),
+                _find_arg(args, '--phase'),
+                raw)
+        elif sub == 'signal-resume':
+            state.cmd_signal_resume(cwd, raw)
         else:
             state.cmd_state_load(cwd, raw)
 
@@ -139,10 +163,17 @@ def main():
 
     elif command == 'commit':
         amend = '--amend' in args
+        no_verify = '--no-verify' in args
         message = args[1] if len(args) > 1 else None
         files_index = args.index('--files') if '--files' in args else -1
         files = [a for a in args[files_index + 1:] if not a.startswith('--')] if files_index != -1 else []
         commands.cmd_commit(cwd, message, files, raw, amend)
+
+    elif command == 'commit-to-subrepo':
+        message = args[1] if len(args) > 1 else None
+        files_index = args.index('--files') if '--files' in args else -1
+        files = [a for a in args[files_index + 1:] if not a.startswith('--')] if files_index != -1 else []
+        commands.cmd_commit_to_subrepo(cwd, message, files, raw)
 
     elif command == 'verify-summary':
         summary_path = args[1] if len(args) > 1 else None
@@ -258,7 +289,9 @@ def main():
         if sub == 'next-decimal':
             phase.cmd_phase_next_decimal(cwd, args[2] if len(args) > 2 else None, raw)
         elif sub == 'add':
-            phase.cmd_phase_add(cwd, ' '.join(args[2:]), raw)
+            custom_id = _find_arg(args, '--id')
+            desc_parts = [a for a in args[2:] if not a.startswith('--') and a != custom_id]
+            phase.cmd_phase_add(cwd, ' '.join(desc_parts), raw, custom_id)
         elif sub == 'insert':
             phase.cmd_phase_insert(cwd, args[2] if len(args) > 2 else None, ' '.join(args[3:]), raw)
         elif sub == 'remove':
@@ -293,8 +326,10 @@ def main():
         elif sub == 'health':
             repair_flag = '--repair' in args
             verify.cmd_validate_health(cwd, {'repair': repair_flag}, raw)
+        elif sub == 'agents':
+            verify.cmd_validate_agents(cwd, raw)
         else:
-            error('Unknown validate subcommand. Available: consistency, health')
+            error('Unknown validate subcommand. Available: consistency, health, agents')
 
     elif command == 'progress':
         sub = args[1] if len(args) > 1 else 'json'
@@ -304,8 +339,10 @@ def main():
         sub = args[1] if len(args) > 1 else None
         if sub == 'complete':
             commands.cmd_todo_complete(cwd, args[2] if len(args) > 2 else None, raw)
+        elif sub == 'match-phase':
+            commands.cmd_todo_match_phase(cwd, args[2] if len(args) > 2 else None, raw)
         else:
-            error('Unknown todo subcommand. Available: complete')
+            error('Unknown todo subcommand. Available: complete, match-phase')
 
     elif command == 'scaffold':
         scaffold_type = args[1] if len(args) > 1 else None
@@ -371,6 +408,101 @@ def main():
             'limit': int(limit_val) if limit_val else 10,
             'freshness': _find_arg(args, '--freshness'),
         }, raw)
+
+    elif command == 'stats':
+        fmt = args[1] if len(args) > 1 else 'json'
+        commands.cmd_stats(cwd, fmt, raw)
+
+    elif command == 'audit-uat':
+        uat.cmd_audit_uat(cwd, raw)
+
+    elif command == 'uat':
+        sub = args[1] if len(args) > 1 else None
+        if sub == 'render-checkpoint':
+            uat.cmd_render_checkpoint(cwd, {'file': _find_arg(args, '--file')}, raw)
+        else:
+            error('Unknown uat subcommand. Available: render-checkpoint')
+
+    elif command == 'workstream':
+        sub = args[1] if len(args) > 1 else None
+        if sub == 'create':
+            name = args[2] if len(args) > 2 else None
+            migrate_name = _find_arg(args, '--migrate-name')
+            workstream.cmd_workstream_create(cwd, name, {
+                'migrate': '--no-migrate' not in args,
+                'migrateName': migrate_name,
+            }, raw)
+        elif sub == 'list':
+            workstream.cmd_workstream_list(cwd, raw)
+        elif sub == 'status':
+            workstream.cmd_workstream_status(cwd, args[2] if len(args) > 2 else None, raw)
+        elif sub == 'complete':
+            workstream.cmd_workstream_complete(cwd, args[2] if len(args) > 2 else None, {}, raw)
+        elif sub == 'set':
+            workstream.cmd_workstream_set(cwd, args[2] if len(args) > 2 else None, raw)
+        elif sub == 'get':
+            workstream.cmd_workstream_get(cwd, raw)
+        elif sub == 'progress':
+            workstream.cmd_workstream_progress(cwd, raw)
+        else:
+            error('Unknown workstream subcommand. Available: create, list, status, complete, set, get, progress')
+
+    elif command == 'scan-sessions':
+        profile_pipeline.cmd_scan_sessions(
+            _find_arg(args, '--path'),
+            {'json': '--json' in args, 'verbose': '--verbose' in args},
+            raw)
+
+    elif command == 'extract-messages':
+        profile_pipeline.cmd_extract_messages(
+            args[1] if len(args) > 1 else None,
+            {'sessionId': _find_arg(args, '--session'),
+             'limit': int(_find_arg(args, '--limit') or 10)},
+            raw, _find_arg(args, '--path'))
+
+    elif command == 'profile-sample':
+        profile_pipeline.cmd_profile_sample(
+            _find_arg(args, '--path'),
+            {'maxPerProject': int(_find_arg(args, '--max-per-project') or 50),
+             'maxChars': int(_find_arg(args, '--max-chars') or 500000)},
+            raw)
+
+    elif command == 'write-profile':
+        profile_output.cmd_write_profile(cwd, {
+            'input': _find_arg(args, '--input'),
+            'output': _find_arg(args, '--output'),
+        }, raw)
+
+    elif command == 'profile-questionnaire':
+        profile_output.cmd_profile_questionnaire({
+            'answers': _find_arg(args, '--answers'),
+        }, raw)
+
+    elif command == 'generate-dev-preferences':
+        profile_output.cmd_generate_dev_preferences(cwd, {
+            'analysis': _find_arg(args, '--analysis'),
+            'output': _find_arg(args, '--output'),
+            'stack': _find_arg(args, '--stack'),
+        }, raw)
+
+    elif command == 'generate-claude-profile':
+        profile_output.cmd_generate_claude_profile(cwd, {
+            'analysis': _find_arg(args, '--analysis'),
+            'global': '--global' in args,
+            'output': _find_arg(args, '--output'),
+        }, raw)
+
+    elif command == 'generate-claude-md':
+        profile_output.cmd_generate_claude_md(cwd, {
+            'output': _find_arg(args, '--output'),
+            'auto': '--auto' in args,
+        }, raw)
+
+    elif command == 'agent-skills':
+        from lib_py.core import check_agents_installed
+        result = check_agents_installed()
+        from lib_py.core import output as _output
+        _output(result, raw)
 
     else:
         error('Unknown command: %s' % command)

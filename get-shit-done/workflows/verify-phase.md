@@ -28,16 +28,17 @@ Then verify each level against the actual codebase.
 Load phase operation context:
 
 ```bash
-INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" init phase-op "${PHASE_ARG}")
+INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init phase-op "${PHASE_ARG}")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `has_plans`, `plan_count`.
 
 Then load phase details and list plans/summaries:
 ```bash
-python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" roadmap get-phase "${phase_number}"
-grep -E "^| ${phase_number}" .planning/REQUIREMENTS.md 2>/dev/null
-ls "$phase_dir"/*-SUMMARY.md "$phase_dir"/*-PLAN.md 2>/dev/null
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap get-phase "${phase_number}"
+grep -E "^| ${phase_number}" .planning/REQUIREMENTS.md 2>/dev/null || true
+ls "$phase_dir"/*-SUMMARY.md "$phase_dir"/*-PLAN.md 2>/dev/null || true
 ```
 
 Extract **phase goal** from ROADMAP.md (the outcome to verify, not tasks) and **requirements** from REQUIREMENTS.md if it exists.
@@ -50,7 +51,7 @@ Use gsd-tools to extract must_haves from each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  MUST_HAVES=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" frontmatter get "$plan" --field must_haves)
+  MUST_HAVES=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" frontmatter get "$plan" --field must_haves)
   echo "=== $plan ===" && echo "$MUST_HAVES"
 done
 ```
@@ -64,7 +65,7 @@ Aggregate all must_haves across plans for phase-level verification.
 If no must_haves in frontmatter (MUST_HAVES returns error or empty), check for Success Criteria:
 
 ```bash
-PHASE_DATA=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" roadmap get-phase "${phase_number}" --raw)
+PHASE_DATA=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap get-phase "${phase_number}" --raw)
 ```
 
 Parse the `success_criteria` array from the JSON output. If non-empty:
@@ -100,7 +101,7 @@ Use gsd-tools for artifact verification against must_haves in each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  ARTIFACT_RESULT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" verify artifacts "$plan")
+  ARTIFACT_RESULT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" verify artifacts "$plan")
   echo "=== $plan ===" && echo "$ARTIFACT_RESULT"
 done
 ```
@@ -125,6 +126,17 @@ WIRED = imported AND used. ORPHANED = exists but not imported/used.
 | ✓ | ✓ | ✗ | ⚠️ ORPHANED |
 | ✓ | ✗ | - | ✗ STUB |
 | ✗ | - | - | ✗ MISSING |
+
+**Export-level spot check (WARNING severity):**
+
+For artifacts that pass Level 3, spot-check individual exports:
+- Extract key exported symbols (functions, constants, classes — skip types/interfaces)
+- For each, grep for usage outside the defining file
+- Flag exports with zero external call sites as "exported but unused"
+
+This catches dead stores like `setPlan()` that exist in a wired file but are
+never actually called. Report as WARNING — may indicate incomplete cross-plan
+wiring or leftover code from plan revisions.
 </step>
 
 <step name="verify_wiring">
@@ -132,7 +144,7 @@ Use gsd-tools for key link verification against must_haves in each PLAN:
 
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
-  LINKS_RESULT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" verify key-links "$plan")
+  LINKS_RESULT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" verify key-links "$plan")
   echo "=== $plan ===" && echo "$LINKS_RESULT"
 done
 ```
@@ -159,7 +171,7 @@ Record status and evidence for each key link.
 <step name="verify_requirements">
 If REQUIREMENTS.md exists:
 ```bash
-grep -E "Phase ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null
+grep -E "Phase ${PHASE_NUM}" .planning/REQUIREMENTS.md 2>/dev/null || true
 ```
 
 For each requirement: parse description → identify supporting truths/artifacts → status: ✓ SATISFIED / ✗ BLOCKED / ? NEEDS HUMAN.

@@ -769,3 +769,14 @@ def cmd_validate_health(cwd, options, raw):
         result['repairs_performed'] = repair_actions
 
     output(result, raw)
+
+
+def cmd_validate_agents(cwd, raw):
+    """Validate GSD agent installation status."""
+    from .core import check_agents_installed
+    from .model_profiles import _all_profiles
+    result = check_agents_installed()
+    expected = list(_all_profiles().keys())
+    result['expected'] = expected
+    result['agents_found'] = result['agents_installed']
+    output(result, raw)

@@ -432,6 +432,186 @@ def generate_slug_internal(text):
     return re.sub(r'^-+|-+$', '', re.sub(r'[^a-z0-9]+', '-', text.lower()))
 
 
+def planning_root(cwd):
+    """Always return root .planning/ path, ignoring workstreams."""
+    return os.path.join(cwd, '.planning')
+
+
+def planning_dir(cwd, ws=None):
+    """Get .planning directory path, workstream-aware."""
+    ws = ws or os.environ.get('GSD_WORKSTREAM')
+    if ws:
+        return os.path.join(cwd, '.planning', 'workstreams', ws)
+    return os.path.join(cwd, '.planning')
+
+
+def planning_paths(cwd, ws=None):
+    """Get common .planning file paths, workstream-aware."""
+    pd = planning_dir(cwd, ws)
+    pr = planning_root(cwd)
+    return {
+        'planning': pd,
+        'state': os.path.join(pd, 'STATE.md'),
+        'roadmap': os.path.join(pd, 'ROADMAP.md'),
+        'phases': os.path.join(pd, 'phases'),
+        'requirements': os.path.join(pd, 'REQUIREMENTS.md'),
+        'project': os.path.join(pr, 'PROJECT.md'),
+        'config': os.path.join(pr, 'config.json'),
+    }
+
+
+def strip_shipped_milestones(content):
+    """Strip shipped milestone content wrapped in <details> blocks."""
+    return re.sub(r'<details>[\s\S]*?</details>', '', content, flags=re.IGNORECASE)
+
+
+def extract_current_milestone(content, cwd=None):
+    """Extract current milestone section from ROADMAP.md."""
+    cleaned = strip_shipped_milestones(content)
+
+    if cwd:
+        state_path = os.path.join(cwd, '.planning', 'STATE.md')
+        state_content = safe_read_file(state_path) or ''
+        version_m = re.search(r'\*\*Milestone:\*\*\s*(v[\d.]+)', state_content, re.IGNORECASE)
+        if version_m:
+            target_version = version_m.group(1)
+            heading_re = re.compile(
+                r'##\s+.*' + re.escape(target_version) + r'[:\s]', re.IGNORECASE)
+            heading_m = heading_re.search(cleaned)
+            if heading_m:
+                rest = cleaned[heading_m.start():]
+                next_milestone = re.search(r'\n##\s+(?:Roadmap|Milestone)\s', rest[1:])
+                if next_milestone:
+                    return rest[:next_milestone.start() + 1]
+                return rest
+
+    marker_m = re.search(r'##\s+.*🚧', cleaned)
+    if marker_m:
+        rest = cleaned[marker_m.start():]
+        next_milestone = re.search(r'\n##\s+(?:Roadmap|Milestone)\s', rest[1:])
+        if next_milestone:
+            return rest[:next_milestone.start() + 1]
+        return rest
+
+    return cleaned
+
+
+def get_milestone_phase_filter(cwd):
+    """Return a filter function for phases in the current milestone."""
+    roadmap_path = os.path.join(cwd, '.planning', 'ROADMAP.md')
+    roadmap = safe_read_file(roadmap_path) or ''
+    milestone_content = extract_current_milestone(roadmap, cwd)
+
+    phase_nums = set()
+    for m in re.finditer(r'###?\s*Phase\s+(\d+[A-Z]?(?:\.\d+)*)', milestone_content, re.IGNORECASE):
+        phase_nums.add(m.group(1))
+
+    def _filter(dir_name):
+        m = re.match(r'^(\d+[A-Z]?(?:\.\d+)*)', dir_name, re.IGNORECASE)
+        if not m:
+            return False
+        if not phase_nums:
+            return True
+        return m.group(1) in phase_nums
+
+    _filter.phase_count = len(phase_nums)
+    return _filter
+
+
+def read_subdirectories(base_dir, sort=True):
+    """Read subdirectory names from a directory."""
+    try:
+        dirs = [e for e in os.listdir(base_dir)
+                if os.path.isdir(os.path.join(base_dir, e))]
+        if sort:
+            dirs.sort()
+        return dirs
+    except (IOError, OSError):
+        return []
+
+
+def detect_sub_repos(cwd):
+    """Scan immediate child directories for separate git repos."""
+    results = []
+    try:
+        for entry in os.listdir(cwd):
+            if entry.startswith('.') or entry == 'node_modules':
+                continue
+            child = os.path.join(cwd, entry)
+            if os.path.isdir(child) and os.path.isdir(os.path.join(child, '.git')):
+                results.append(entry)
+    except (IOError, OSError):
+        pass
+    return sorted(results)
+
+
+def find_project_root(start_dir):
+    """Walk up from start_dir to find project root owning .planning/."""
+    if os.path.isdir(os.path.join(start_dir, '.planning')):
+        return start_dir
+
+    current = os.path.abspath(start_dir)
+    while True:
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        planning = os.path.join(parent, '.planning')
+        if os.path.isdir(planning):
+            config_path = os.path.join(planning, 'config.json')
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        cfg = json.load(f)
+                    if cfg.get('sub_repos') or cfg.get('multiRepo'):
+                        return parent
+                except (IOError, ValueError):
+                    pass
+            if os.path.isdir(os.path.join(parent, '.git')):
+                return parent
+        current = parent
+
+    return start_dir
+
+
+def extract_one_liner_from_body(content):
+    """Extract a one-liner summary from body text."""
+    if not content:
+        return None
+    lines = content.strip().split('\n')
+    for line in lines:
+        line = line.strip()
+        if line and not line.startswith('#') and not line.startswith('---'):
+            return line[:200]
+    return None
+
+
+def get_agents_dir():
+    """Resolve agents directory from GSD install location."""
+    lib_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(lib_dir))), 'agents')
+
+
+def check_agents_installed():
+    """Check which GSD agents are installed on disk."""
+    agents_dir = get_agents_dir()
+    expected = list(MODEL_PROFILES.keys())
+    installed = []
+    missing = []
+
+    for agent in expected:
+        if os.path.exists(os.path.join(agents_dir, '%s.md' % agent)):
+            installed.append(agent)
+        else:
+            missing.append(agent)
+
+    return {
+        'agents_installed': len(missing) == 0,
+        'missing_agents': missing,
+        'installed_agents': installed,
+        'agents_dir': agents_dir,
+    }
+
+
 def get_milestone_info(cwd):
     try:
         with open(os.path.join(cwd, '.planning', 'ROADMAP.md'), 'r', encoding='utf-8') as f:

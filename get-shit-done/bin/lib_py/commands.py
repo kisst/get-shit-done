@@ -453,3 +453,183 @@ def cmd_scaffold(cwd, scaffold_type, options, raw):
         f.write(content)
     rel_path = os.path.relpath(file_path, cwd)
     output({'created': True, 'path': rel_path}, raw, rel_path)
+
+
+# ─── New upstream functions (v1.23–v1.29) ────────────────────────────────────
+
+def cmd_todo_match_phase(cwd, phase, raw):
+    """Match pending todos against a phase by relevance scoring."""
+    from .core import get_roadmap_phase_internal
+
+    pending_dir = os.path.join(cwd, '.planning', 'todos', 'pending')
+    phase_info = get_roadmap_phase_internal(cwd, phase)
+
+    phase_text = ''
+    if phase_info:
+        phase_text = (phase_info.get('phase_name', '') + ' ' +
+                      (phase_info.get('goal', '') or '') + ' ' +
+                      (phase_info.get('section', '') or ''))
+    phase_keywords = set(
+        w.lower() for w in re.findall(r'[a-zA-Z]{3,}', phase_text)
+    )
+
+    phase_disk = find_phase_internal(cwd, phase)
+    plan_files = set()
+    if phase_disk:
+        phase_dir = os.path.join(cwd, phase_disk['directory'])
+        try:
+            for f in os.listdir(phase_dir):
+                if f.endswith('.md'):
+                    plan_files.add(f)
+        except (IOError, OSError):
+            pass
+
+    todos = []
+    try:
+        files = sorted(f for f in os.listdir(pending_dir) if f.endswith('.md'))
+    except (IOError, OSError):
+        files = []
+
+    for fname in files:
+        try:
+            with open(os.path.join(pending_dir, fname), 'r', encoding='utf-8') as f:
+                content = f.read()
+        except (IOError, OSError):
+            continue
+
+        title_m = re.search(r'^title:\s*(.+)$', content, re.MULTILINE)
+        area_m = re.search(r'^area:\s*(.+)$', content, re.MULTILINE)
+        title = title_m.group(1).strip() if title_m else 'Untitled'
+        area = area_m.group(1).strip() if area_m else 'general'
+
+        todo_words = set(w.lower() for w in re.findall(r'[a-zA-Z]{3,}', title + ' ' + content))
+        overlap = todo_words & phase_keywords
+        keyword_score = min(0.6, len(overlap) * 0.1) if overlap else 0
+
+        area_score = 0.3 if area.lower() in phase_text.lower() else 0
+        file_score = 0
+        reasons = []
+        if keyword_score > 0:
+            reasons.append('keyword overlap: %s' % ', '.join(list(overlap)[:5]))
+        if area_score > 0:
+            reasons.append('area match: %s' % area)
+
+        score = keyword_score + area_score + file_score
+        if score > 0:
+            todos.append({
+                'file': fname,
+                'title': title,
+                'area': area,
+                'score': round(score, 2),
+                'reasons': reasons,
+            })
+
+    todos.sort(key=lambda t: t['score'], reverse=True)
+    output({'phase': str(phase), 'matches': todos, 'todo_count': len(todos)}, raw)
+
+
+def cmd_stats(cwd, fmt, raw):
+    """Render detailed project statistics."""
+    phases_dir = os.path.join(cwd, '.planning', 'phases')
+    roadmap_path = os.path.join(cwd, '.planning', 'ROADMAP.md')
+    reqs_path = os.path.join(cwd, '.planning', 'REQUIREMENTS.md')
+    state_path = os.path.join(cwd, '.planning', 'STATE.md')
+
+    phases = []
+    total_plans = 0
+    total_summaries = 0
+    if os.path.isdir(phases_dir):
+        for d in sorted(os.listdir(phases_dir)):
+            dp = os.path.join(phases_dir, d)
+            if not os.path.isdir(dp):
+                continue
+            files = os.listdir(dp)
+            plans = [f for f in files if f.endswith('-PLAN.md') or f == 'PLAN.md']
+            summaries = [f for f in files if f.endswith('-SUMMARY.md') or f == 'SUMMARY.md']
+            total_plans += len(plans)
+            total_summaries += len(summaries)
+            status = 'complete' if plans and len(summaries) >= len(plans) else (
+                'in_progress' if plans else 'pending')
+            phases.append({'name': d, 'plans': len(plans),
+                           'summaries': len(summaries), 'status': status})
+
+    reqs_total = 0
+    reqs_done = 0
+    reqs_content = safe_read_file(reqs_path) or ''
+    reqs_total = len(re.findall(r'^\s*- \[', reqs_content, re.MULTILINE))
+    reqs_done = len(re.findall(r'^\s*- \[x\]', reqs_content, re.MULTILINE | re.IGNORECASE))
+
+    state_content = safe_read_file(state_path) or ''
+    last_activity_m = re.search(r'\*\*Last Activity:\*\*\s*(.+)', state_content, re.IGNORECASE)
+    last_activity = last_activity_m.group(1).strip() if last_activity_m else None
+
+    git_commits = 0
+    git_result = exec_git(cwd, ['rev-list', '--count', 'HEAD'])
+    if git_result['exitCode'] == 0 and git_result['stdout'].isdigit():
+        git_commits = int(git_result['stdout'])
+
+    completed = sum(1 for p in phases if p['status'] == 'complete')
+    progress_pct = int(completed / len(phases) * 100) if phases else 0
+    req_pct = int(reqs_done / reqs_total * 100) if reqs_total > 0 else 0
+
+    result = {
+        'phases': phases,
+        'phase_count': len(phases),
+        'completed_phases': completed,
+        'progress_percent': progress_pct,
+        'total_plans': total_plans,
+        'total_summaries': total_summaries,
+        'requirements_total': reqs_total,
+        'requirements_done': reqs_done,
+        'requirements_percent': req_pct,
+        'git_commits': git_commits,
+        'last_activity': last_activity,
+    }
+    output(result, raw)
+
+
+def cmd_commit_to_subrepo(cwd, message, files, raw):
+    """Route commits to appropriate sub-repos based on file prefixes."""
+    from .config import _load_raw_config
+    config = _load_raw_config(cwd)
+    sub_repos = config.get('planning', {}).get('sub_repos', [])
+    if not sub_repos:
+        sub_repos = config.get('sub_repos', [])
+
+    repos = {}
+    unmatched = []
+    for f in (files or []):
+        matched = False
+        for repo in sub_repos:
+            if f.startswith(repo + '/') or f.startswith(repo + os.sep):
+                repos.setdefault(repo, []).append(f)
+                matched = True
+                break
+        if not matched:
+            unmatched.append(f)
+
+    results = {}
+    for repo, repo_files in repos.items():
+        repo_path = os.path.join(cwd, repo)
+        if not os.path.isdir(repo_path):
+            results[repo] = {'committed': False, 'error': 'directory not found'}
+            continue
+        for rf in repo_files:
+            relative = os.path.relpath(os.path.join(cwd, rf), repo_path)
+            exec_git(repo_path, ['add', relative])
+        commit_result = exec_git(repo_path, ['commit', '-m', message])
+        if commit_result['exitCode'] == 0:
+            hash_result = exec_git(repo_path, ['rev-parse', '--short', 'HEAD'])
+            results[repo] = {
+                'committed': True,
+                'hash': hash_result['stdout'] if hash_result['exitCode'] == 0 else None,
+                'files': repo_files,
+            }
+        else:
+            results[repo] = {'committed': False, 'error': commit_result.get('stderr', '')}
+
+    output({
+        'committed': any(r.get('committed') for r in results.values()),
+        'repos': results,
+        'unmatched': unmatched,
+    }, raw)
