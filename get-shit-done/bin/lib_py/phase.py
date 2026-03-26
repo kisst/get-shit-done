@@ -288,7 +288,7 @@ def cmd_phase_plan_index(cwd, phase, raw):
     output(result, raw)
 
 
-def cmd_phase_add(cwd, description, raw):
+def cmd_phase_add(cwd, description, raw, custom_id=None):
     if not description:
         error('description required for phase add')
 
@@ -301,14 +301,20 @@ def cmd_phase_add(cwd, description, raw):
 
     slug = generate_slug_internal(description)
 
-    phase_pattern = re.compile(r'#{2,4}\s*Phase\s+(\d+)[A-Z]?(?:\.\d+)*:', re.IGNORECASE)
-    max_phase = 0
-    for m in phase_pattern.finditer(content):
-        num = int(m.group(1))
-        if num > max_phase:
-            max_phase = num
-
-    new_phase_num = max_phase + 1
+    # Support custom IDs (e.g., PROJ-42) via --id flag
+    if custom_id:
+        new_phase_num = custom_id
+    else:
+        # Find highest integer phase in current milestone only
+        from .core import extract_current_milestone
+        milestone_content = extract_current_milestone(content, cwd)
+        phase_pattern = re.compile(r'#{2,4}\s*Phase\s+(\d+)[A-Z]?(?:\.\d+)*:', re.IGNORECASE)
+        max_phase = 0
+        for m in phase_pattern.finditer(milestone_content):
+            num = int(m.group(1))
+            if num > max_phase:
+                max_phase = num
+        new_phase_num = max_phase + 1
     padded_num = str(new_phase_num).zfill(2)
     dir_name = '%s-%s' % (padded_num, slug)
     dir_path = os.path.join(cwd, '.planning', 'phases', dir_name)
@@ -342,6 +348,7 @@ def cmd_phase_add(cwd, description, raw):
         'name': description,
         'slug': slug,
         'directory': '.planning/phases/%s' % dir_name,
+        'naming_mode': 'custom' if custom_id else 'sequential',
     }
 
     output(result, raw, padded_num)

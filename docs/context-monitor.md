@@ -1,6 +1,6 @@
 # Context Window Monitor
 
-A PostToolUse hook that warns the agent when context window usage is high.
+A post-tool hook (`PostToolUse` for Claude Code, `AfterTool` for Gemini CLI) that warns the agent when context window usage is high.
 
 ## Problem
 
@@ -31,13 +31,13 @@ To avoid spamming the agent with repeated warnings:
 ## Architecture
 
 ```
-Statusline Hook (gsd-statusline.py)
+Statusline Hook (gsd-statusline.js)
     | writes
     v
 /tmp/claude-ctx-{session_id}.json
     ^ reads
     |
-Context Monitor (gsd-context-monitor.py, PostToolUse)
+Context Monitor (gsd-context-monitor.js, PostToolUse/AfterTool)
     | injects
     v
 additionalContext -> Agent sees warning
@@ -60,18 +60,18 @@ GSD's `/gsd:pause-work` command saves execution state. The WARNING message sugge
 
 ## Setup
 
-Both hooks are automatically registered during `make install`:
+Both hooks are automatically registered during `npx get-shit-done-cc` installation:
 
 - **Statusline** (writes bridge file): Registered as `statusLine` in settings.json
-- **Context Monitor** (reads bridge file): Registered as `PostToolUse` hook in settings.json
+- **Context Monitor** (reads bridge file): Registered as `PostToolUse` hook in settings.json (`AfterTool` for Gemini)
 
-Manual registration in `~/.claude/settings.json`:
+Manual registration in `~/.claude/settings.json` (Claude Code):
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "python3 ~/.claude/hooks/gsd-statusline.py"
+    "command": "node ~/.claude/hooks/gsd-statusline.js"
   },
   "hooks": {
     "PostToolUse": [
@@ -79,7 +79,26 @@ Manual registration in `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/gsd-context-monitor.py"
+            "command": "node ~/.claude/hooks/gsd-context-monitor.js"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+For Gemini CLI (`~/.gemini/settings.json`), use `AfterTool` instead of `PostToolUse`:
+
+```json
+{
+  "hooks": {
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.gemini/hooks/gsd-context-monitor.js"
           }
         ]
       }

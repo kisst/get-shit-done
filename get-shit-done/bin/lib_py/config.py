@@ -6,6 +6,16 @@ import os
 from .core import output, error
 
 
+def _load_raw_config(cwd):
+    """Load raw config.json without defaults/normalization."""
+    config_path = os.path.join(cwd, '.planning', 'config.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (IOError, OSError, ValueError):
+        return {}
+
+
 def cmd_config_ensure_section(cwd, raw):
     config_path = os.path.join(cwd, '.planning', 'config.json')
     if os.path.exists(config_path):

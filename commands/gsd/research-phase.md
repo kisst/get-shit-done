@@ -23,6 +23,11 @@ Research how to implement a phase. Spawns gsd-phase-researcher agent with phase 
 **Why subagent:** Research burns context fast (WebSearch, Context7 queries, source verification). Fresh 200k context for investigation. Main context stays lean for user interaction.
 </objective>
 
+<available_agent_types>
+Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
+- gsd-phase-researcher — Researches technical approaches for a phase
+</available_agent_types>
+
 <context>
 Phase number: $ARGUMENTS (required)
 
@@ -34,20 +39,21 @@ Normalize phase input in step 1 before any directory lookups.
 ## 0. Initialize Context
 
 ```bash
-INIT=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" init phase-op "$ARGUMENTS")
+INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init phase-op "$ARGUMENTS")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `phase_found`, `commit_docs`, `has_research`, `state_path`, `requirements_path`, `context_path`, `research_path`.
 
 Resolve researcher model:
 ```bash
-RESEARCHER_MODEL=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" resolve-model gsd-phase-researcher --raw)
+RESEARCHER_MODEL=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" resolve-model gsd-phase-researcher --raw)
 ```
 
 ## 1. Validate Phase
 
 ```bash
-PHASE_INFO=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" roadmap get-phase "${phase_number}")
+PHASE_INFO=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap get-phase "${phase_number}")
 ```
 
 **If `found` is false:** Error and exit. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
@@ -135,8 +141,8 @@ Write to: .planning/phases/${PHASE}-{slug}/${PHASE}-RESEARCH.md
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/gsd-phase-researcher.md for your role and instructions.\n\n" + filled_prompt,
-  subagent_type="general-purpose",
+  prompt=filled_prompt,
+  subagent_type="gsd-phase-researcher",
   model="{researcher_model}",
   description="Research Phase {phase}"
 )
@@ -171,8 +177,8 @@ Continue research for Phase {phase_number}: {phase_name}
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/gsd-phase-researcher.md for your role and instructions.\n\n" + continuation_prompt,
-  subagent_type="general-purpose",
+  prompt=continuation_prompt,
+  subagent_type="gsd-phase-researcher",
   model="{researcher_model}",
   description="Continue research Phase {phase}"
 )

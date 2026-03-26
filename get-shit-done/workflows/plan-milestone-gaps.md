@@ -12,7 +12,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ```bash
 # Find the most recent audit file
-ls -t .planning/v*-MILESTONE-AUDIT.md 2>/dev/null | head -1
+(ls -t .planning/v*-MILESTONE-AUDIT.md 2>/dev/null || true) | head -1
 ```
 
 Parse YAML frontmatter to extract structured gaps:
@@ -65,8 +65,7 @@ Gap: Flow "View dashboard" broken at data fetch
 Find highest existing phase:
 ```bash
 # Get sorted phase list, extract last one
-PHASES=$(python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" phases list)
-HIGHEST=$(echo "$PHASES" | jq -r '.directories[-1]')
+HIGHEST=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" phases list --pick directories[-1])
 ```
 
 New phases continue from there:
@@ -147,7 +146,7 @@ mkdir -p ".planning/phases/{NN}-{name}"
 ## 9. Commit Roadmap and Requirements Update
 
 ```bash
-python3 "$HOME/.claude/get-shit-done/bin/gsd-tools.py" commit "docs(roadmap): add gap closure phases {N}-{M}" --files .planning/ROADMAP.md .planning/REQUIREMENTS.md
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(roadmap): add gap closure phases {N}-{M}" --files .planning/ROADMAP.md .planning/REQUIREMENTS.md
 ```
 
 ## 10. Offer Next Steps
