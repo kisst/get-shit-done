@@ -8,22 +8,21 @@
 
 **Solves context rot — the quality degradation that happens as Claude fills its context window.**
 
-[![npm version](https://img.shields.io/npm/v/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
-[![npm downloads](https://img.shields.io/npm/dm/get-shit-done-cc?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/get-shit-done-cc)
-[![Tests](https://img.shields.io/github/actions/workflow/status/gsd-build/get-shit-done/test.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/gsd-build/get-shit-done/actions/workflows/test.yml)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/gsd)
-[![X (Twitter)](https://img.shields.io/badge/X-@gsd__foundation-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/gsd_foundation)
-[![$GSD Token](https://img.shields.io/badge/$GSD-Dexscreener-1C1C1C?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iIzAwRkYwMCIvPjwvc3ZnPg==&logoColor=00FF00)](https://dexscreener.com/solana/dwudwjvan7bzkw9zwlbyv6kspdlvhwzrqy6ebk8xzxkv)
+[![Tests](https://img.shields.io/github/actions/workflow/status/kisst/get-shit-done/test.yml?branch=main&style=for-the-badge&logo=github&label=Tests)](https://github.com/kisst/get-shit-done/actions/workflows/test.yml)
 [![GitHub stars](https://img.shields.io/github/stars/gsd-build/get-shit-done?style=for-the-badge&logo=github&color=181717)](https://github.com/gsd-build/get-shit-done)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+
+> **Python fork** — No Node.js required. Synced with upstream [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) v1.29.0.
 
 <br>
 
 ```bash
-npx get-shit-done-cc@latest
+git clone https://github.com/kisst/get-shit-done.git
+cd get-shit-done
+make install
 ```
 
-**Works on Mac, Windows, and Linux.**
+**Requires Python 3.6+. Works on Mac, Windows, and Linux.**
 
 <br>
 
@@ -77,89 +76,47 @@ People who want to describe what they want and have it built correctly — witho
 
 ## Getting Started
 
+### Prerequisites
+
+- **Python 3.6+** (check with `python3 --version`)
+- **Git**
+- **Claude Code** (or another supported runtime)
+
+### Install
+
 ```bash
-npx get-shit-done-cc@latest
+git clone https://github.com/kisst/get-shit-done.git
+cd get-shit-done
+make install
 ```
 
-The installer prompts you to choose:
-1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, Copilot, Cursor, Windsurf, Antigravity, or all (interactive multi-select — pick multiple runtimes in a single install session)
-2. **Location** — Global (all projects) or local (current project only)
+This installs GSD globally to `~/.claude/get-shit-done/` using symlinks — edits in the repo are live immediately.
 
-Verify with:
-- Claude Code / Gemini: `/gsd:help`
-- OpenCode: `/gsd-help`
-- Codex: `$gsd-help`
-- Copilot: `/gsd:help`
-- Antigravity: `/gsd:help`
+Verify with: `/gsd:help`
 
-> [!NOTE]
-> Codex installation uses skills (`skills/gsd-*/SKILL.md`) rather than custom prompts.
+### Install Options
+
+| Command | What it does |
+|---------|--------------|
+| `make install` | Global install via symlinks (default, recommended for development) |
+| `make install-copy` | Global install via file copies (standalone, no repo dependency) |
+| `make install-local` | Install to current project's `.claude/` only |
+| `make uninstall` | Remove global GSD installation |
+| `make test` | Run the Python test suite |
+| `make check` | Smoke-test the installation |
 
 ### Staying Updated
 
-GSD evolves fast. Update periodically:
-
 ```bash
-npx get-shit-done-cc@latest
-```
-
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
-
-```bash
-# Claude Code
-npx get-shit-done-cc --claude --global   # Install to ~/.claude/
-npx get-shit-done-cc --claude --local    # Install to ./.claude/
-
-# OpenCode (open source, free models)
-npx get-shit-done-cc --opencode --global # Install to ~/.config/opencode/
-
-# Gemini CLI
-npx get-shit-done-cc --gemini --global   # Install to ~/.gemini/
-
-# Codex (skills-first)
-npx get-shit-done-cc --codex --global    # Install to ~/.codex/
-npx get-shit-done-cc --codex --local     # Install to ./.codex/
-
-# Copilot (GitHub Copilot CLI)
-npx get-shit-done-cc --copilot --global  # Install to ~/.github/
-npx get-shit-done-cc --copilot --local   # Install to ./.github/
-
-# Cursor CLI
-npx get-shit-done-cc --cursor --global      # Install to ~/.cursor/
-npx get-shit-done-cc --cursor --local       # Install to ./.cursor/
-
-# Windsurf (Codeium, VS Code-based)
-npx get-shit-done-cc --windsurf --global    # Install to ~/.windsurf/
-npx get-shit-done-cc --windsurf --local     # Install to ./.windsurf/
-
-# Antigravity (Google, skills-first, Gemini-based)
-npx get-shit-done-cc --antigravity --global # Install to ~/.gemini/antigravity/
-npx get-shit-done-cc --antigravity --local  # Install to ./.agent/
-
-# All runtimes
-npx get-shit-done-cc --all --global      # Install to all directories
-```
-
-Use `--global` (`-g`) or `--local` (`-l`) to skip the location prompt.
-Use `--claude`, `--opencode`, `--gemini`, `--codex`, `--copilot`, `--cursor`, `--windsurf`, `--antigravity`, or `--all` to skip the runtime prompt.
-
-</details>
-
-<details>
-<summary><strong>Development Installation</strong></summary>
-
-Clone the repository and run the installer locally:
-
-```bash
-git clone https://github.com/gsd-build/get-shit-done.git
 cd get-shit-done
-node bin/install.js --claude --local
+git pull
 ```
 
-Installs to `./.claude/` for testing modifications before contributing.
+With symlinked install, pulling updates is all you need — no reinstall required.
 
-</details>
+> [!NOTE]
+> This is a Python-only fork. The upstream project uses `npx get-shit-done-cc@latest` with Node.js.
+> This fork replaces all Node.js tooling with Python while maintaining full feature parity.
 
 ### Recommended: Skip Permissions Mode
 
@@ -715,11 +672,11 @@ At milestone completion, GSD offers squash merge (recommended) or merge with his
 GSD includes defense-in-depth security since v1.27:
 
 - **Path traversal prevention** — All user-supplied file paths (`--text-file`, `--prd`) are validated to resolve within the project directory
-- **Prompt injection detection** — Centralized `security.cjs` module scans for injection patterns in user-supplied text before it enters planning artifacts
-- **PreToolUse prompt guard hook** — `gsd-prompt-guard` scans writes to `.planning/` for embedded injection vectors (advisory, not blocking)
+- **Prompt injection detection** — Centralized `security.py` module scans for injection patterns in user-supplied text before it enters planning artifacts
+- **PreToolUse prompt guard hook** — `gsd-prompt-guard.py` scans writes to `.planning/` for embedded injection vectors (advisory, not blocking)
 - **Safe JSON parsing** — Malformed `--fields` arguments are caught before they corrupt state
 - **Shell argument validation** — User text is sanitized before shell interpolation
-- **CI-ready injection scanner** — `prompt-injection-scan.test.cjs` scans all agent/workflow/command files for embedded injection vectors
+- **CI security scan** — PR checks scan changed files for prompt injection patterns
 
 > [!NOTE]
 > Because GSD generates markdown files that become LLM system prompts, any user-controlled text flowing into planning artifacts is a potential indirect prompt injection vector. These protections are designed to catch such vectors at multiple layers.
@@ -757,64 +714,53 @@ This prevents Claude from reading these files entirely, regardless of what comma
 
 **Commands not found after install?**
 - Restart your runtime to reload commands/skills
-- Verify files exist in `~/.claude/commands/gsd/` (global) or `./.claude/commands/gsd/` (local)
-- For Codex, verify skills exist in `~/.codex/skills/gsd-*/SKILL.md` (global) or `./.codex/skills/gsd-*/SKILL.md` (local)
+- Verify files exist: `ls ~/.claude/commands/gsd/`
+- Run `make check` to smoke-test the installation
 
 **Commands not working as expected?**
 - Run `/gsd:help` to verify installation
-- Re-run `npx get-shit-done-cc` to reinstall
+- Reinstall: `make install`
 
 **Updating to the latest version?**
 ```bash
-npx get-shit-done-cc@latest
+cd get-shit-done
+git pull
 ```
+With symlinked install, that's all you need.
 
-**Using Docker or containerized environments?**
-
-If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
+**Checking installation health?**
 ```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
+make check
 ```
-This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
 
 ### Uninstalling
 
-To remove GSD completely:
-
 ```bash
-# Global installs
-npx get-shit-done-cc --claude --global --uninstall
-npx get-shit-done-cc --opencode --global --uninstall
-npx get-shit-done-cc --gemini --global --uninstall
-npx get-shit-done-cc --codex --global --uninstall
-npx get-shit-done-cc --copilot --global --uninstall
-npx get-shit-done-cc --cursor --global --uninstall
-npx get-shit-done-cc --windsurf --global --uninstall
-npx get-shit-done-cc --antigravity --global --uninstall
-
-# Local installs (current project)
-npx get-shit-done-cc --claude --local --uninstall
-npx get-shit-done-cc --opencode --local --uninstall
-npx get-shit-done-cc --gemini --local --uninstall
-npx get-shit-done-cc --codex --local --uninstall
-npx get-shit-done-cc --copilot --local --uninstall
-npx get-shit-done-cc --cursor --local --uninstall
-npx get-shit-done-cc --windsurf --local --uninstall
-npx get-shit-done-cc --antigravity --local --uninstall
+make uninstall
 ```
 
-This removes all GSD commands, agents, hooks, and settings while preserving your other configurations.
+This removes `~/.claude/get-shit-done/`. Commands in `~/.claude/commands/` and `~/.claude/agents/` are not removed — delete them manually if desired.
 
 ---
 
+## About This Fork
+
+This is a **Python-only fork** of [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done). All Node.js tooling has been replaced with Python equivalents while maintaining full feature parity with upstream v1.29.0.
+
+**Why Python?** No npm/npx/Node.js dependency. Install with `make install` and Python 3.6+.
+
+| | Upstream | This Fork |
+|---|---------|-----------|
+| **Runtime** | Node.js (`.cjs`) | Python 3.6+ (`.py`) |
+| **Install** | `npx get-shit-done-cc` | `make install` |
+| **Tests** | Jest (`.test.cjs`) | pytest |
+| **Dependencies** | npm | None (stdlib only) |
+
 ## Community Ports
-
-OpenCode, Gemini CLI, and Codex are now natively supported via `npx get-shit-done-cc`.
-
-These community ports pioneered multi-runtime support:
 
 | Project | Platform | Description |
 |---------|----------|-------------|
+| [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) | Node.js | Upstream — original project |
 | [gsd-opencode](https://github.com/rokicool/gsd-opencode) | OpenCode | Original OpenCode adaptation |
 | gsd-gemini (archived) | Gemini CLI | Original Gemini adaptation by uberfuzzy |
 
